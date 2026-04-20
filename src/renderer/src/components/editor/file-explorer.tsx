@@ -127,10 +127,17 @@ function FileExplorer({ rootPath }: FileExplorerProps): React.JSX.Element {
     [openTab]
   )
 
+  /** 从完整路径中提取文件夹名 */
+  const folderName = rootPath.split('/').pop() || rootPath.split('\\').pop() || rootPath
+
   return (
     <div className="h-full overflow-y-auto bg-gray-900 text-sm" role="tree">
-      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-        资源管理器
+      {/* 项目文件夹名 — 醒目显示 */}
+      <div className="flex items-center gap-1.5 border-b border-gray-700 px-3 py-2">
+        <span className="text-sm">📂</span>
+        <span className="truncate text-xs font-bold text-gray-200" title={rootPath}>
+          {folderName}
+        </span>
       </div>
       {rootChildren.map((node) => (
         <TreeNode

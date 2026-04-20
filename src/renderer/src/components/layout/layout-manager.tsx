@@ -104,11 +104,7 @@ function LayoutManager(): React.JSX.Element {
     usePreviewStore.getState().setPreviewUrl(blobUrl)
     usePreviewStore.getState().setIsRunning(true)
     // 确保预览面板可见
-    if (currentMode === 'spec') {
-      persistLayout({ specPanelVisible: true })
-    } else {
-      persistLayout({ previewVisible: true })
-    }
+    persistLayout({ previewVisible: true })
   }, [activeTab, isPreviewableFile, currentMode, persistLayout])
 
   // ===== 侧边栏拖拽 =====
@@ -163,12 +159,13 @@ function LayoutManager(): React.JSX.Element {
   }, [persistLayout])
 
   const handleTogglePreview = useCallback(() => {
-    if (currentMode === 'spec') {
-      persistLayout({ specPanelVisible: !layoutRef.current.specPanelVisible })
-    } else {
-      persistLayout({ previewVisible: !layoutRef.current.previewVisible })
-    }
-  }, [currentMode, persistLayout])
+    persistLayout({ previewVisible: !layoutRef.current.previewVisible })
+  }, [persistLayout])
+
+  /** 切换 Spec 规范面板显隐（独立于预览面板） */
+  const handleToggleSpec = useCallback(() => {
+    persistLayout({ specPanelVisible: !layoutRef.current.specPanelVisible })
+  }, [persistLayout])
 
   // ===== CodeEditor 内容变更回调 =====
   const handleEditorChange = useCallback(
@@ -180,17 +177,11 @@ function LayoutManager(): React.JSX.Element {
     [activeTab, updateTabContent],
   )
 
-  /** 判断右侧面板是否可见 */
-  const isRightPanelVisible =
-    currentMode === 'spec'
-      ? !!layout.specPanelVisible
-      : layout.previewVisible
+  /** 预览面板是否可见（独立于模式） */
+  const isPreviewVisible = !!layout.previewVisible
 
-  /** 右侧面板宽度 */
-  const rightPanelWidth =
-    currentMode === 'spec'
-      ? (layout.specPanelWidth ?? 280)
-      : layout.previewWidth
+  /** Spec 规范面板是否可见（仅 Spec 模式下有意义） */
+  const isSpecPanelVisible = currentMode === 'spec' && !!layout.specPanelVisible
 
   return (
     <div className="flex h-screen w-screen flex-col bg-gray-900 text-white">
@@ -220,19 +211,34 @@ function LayoutManager(): React.JSX.Element {
           >
             终端
           </button>
-          {/* 右侧面板切换按钮 */}
+          {/* 预览面板切换按钮（独立于模式） */}
           <button
             onClick={handleTogglePreview}
             className={`rounded px-2 py-0.5 text-xs ${
-              isRightPanelVisible
+              isPreviewVisible
                 ? 'bg-gray-700 text-gray-200'
                 : 'text-gray-500 hover:text-gray-300'
             }`}
-            aria-label="切换右侧面板"
-            aria-pressed={isRightPanelVisible}
+            aria-label="切换预览面板"
+            aria-pressed={isPreviewVisible}
           >
-            {currentMode === 'spec' ? '规范' : '预览'}
+            预览
           </button>
+          {/* Spec 规范面板切换按钮（仅 Spec 模式显示） */}
+          {currentMode === 'spec' && (
+            <button
+              onClick={handleToggleSpec}
+              className={`rounded px-2 py-0.5 text-xs ${
+                isSpecPanelVisible
+                  ? 'bg-gray-700 text-gray-200'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              aria-label="切换规范面板"
+              aria-pressed={isSpecPanelVisible}
+            >
+              规范
+            </button>
+          )}
           <ModeSwitch />
         </div>
       </header>
@@ -291,6 +297,16 @@ function LayoutManager(): React.JSX.Element {
               </button>
             )}
           </div>
+          {/* 当前文件相对路径面包屑 */}
+          {activeTab && projectPath && (
+            <div className="flex h-6 shrink-0 items-center border-b border-gray-800 bg-gray-900/50 px-3">
+              <span className="truncate text-[11px] text-gray-500" title={activeTab.filePath}>
+                {activeTab.filePath.startsWith(projectPath)
+                  ? activeTab.filePath.slice(projectPath.length).replace(/^[/\\]/, '')
+                  : activeTab.filePath}
+              </span>
+            </div>
+          )}
           <div className="flex-1 overflow-hidden">
             {activeTab ? (
               <CodeEditor
@@ -308,28 +324,33 @@ function LayoutManager(): React.JSX.Element {
         </main>
 
         {/* 编辑器与右侧面板之间的拖拽分隔条 */}
-        {isRightPanelVisible && (
+        {(isPreviewVisible || isSpecPanelVisible) && (
           <ResizeHandle direction="horizontal" onResize={handleRightPanelResize} />
         )}
 
-        {/* 右侧面板：根据模式切换显示内容 */}
-        {isRightPanelVisible && currentMode === 'spec' && (
+        {/* Spec 规范面板（独立于预览，仅 Spec 模式） */}
+        {isSpecPanelVisible && (
           <aside
             className="shrink-0 border-l border-gray-700"
-            style={{ width: rightPanelWidth }}
+            style={{ width: layout.specPanelWidth ?? 280 }}
           >
             <SpecPanel />
           </aside>
         )}
 
-        {/* Vibe 模式下的内嵌预览面板 */}
-        {isRightPanelVisible && currentMode === 'vibe' && (
-          <aside
-            className="flex shrink-0 flex-col border-l border-gray-700 bg-gray-900"
-            style={{ width: rightPanelWidth }}
-          >
-            <EmbeddedPreviewPanel />
-          </aside>
+        {/* 预览面板（独立于模式，始终可用） */}
+        {isPreviewVisible && (
+          <>
+            {isSpecPanelVisible && (
+              <ResizeHandle direction="horizontal" onResize={handleRightPanelResize} />
+            )}
+            <aside
+              className="flex shrink-0 flex-col border-l border-gray-700 bg-gray-900"
+              style={{ width: layout.previewWidth }}
+            >
+              <EmbeddedPreviewPanel />
+            </aside>
+          </>
         )}
       </div>
 
